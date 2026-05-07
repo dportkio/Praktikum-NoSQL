@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS IIoT — Pabrik Susu Monitoring</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;800&family=Rajdhani:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg-void:#050a0f;--bg-deep:#080e15;--bg-card:#0c1520;--bg-card-hover:#101c2a;
+  --border:rgba(0,200,255,0.12);--border-bright:rgba(0,200,255,0.35);
+  --cyan:#00c8ff;--cyan-dim:rgba(0,200,255,0.6);--cyan-glow:rgba(0,200,255,0.12);
+  --blue:#0080ff;--green:#00e676;--green-glow:rgba(0,230,118,0.15);
+  --yellow:#ffcc00;--yellow-glow:rgba(255,204,0,0.15);
+  --red:#ff3d5a;--red-glow:rgba(255,61,90,0.15);
+  --text-primary:#e8f4f8;--text-secondary:#7ba8bf;--text-dim:#3a5a70;
+  --sidebar-w:228px;--header-h:60px;
+  --scanline-opacity:0.025;
+}
+/* ── DAY SHIFT (LIGHT MODE) ─────────────────────────────────────────────────── */
+body.day-shift {
+  --bg-void:#f0f4f8;--bg-deep:#e2e9f0;--bg-card:#ffffff;--bg-card-hover:#f7fafc;
+  --border:rgba(0,120,180,0.15);--border-bright:rgba(0,120,180,0.4);
+  --cyan:#0077b6;--cyan-dim:rgba(0,119,182,0.6);--cyan-glow:rgba(0,119,182,0.1);
+  --green:#00875a;--green-glow:rgba(0,135,90,0.12);
+  --yellow:#b8860b;--yellow-glow:rgba(184,134,11,0.12);
+  --red:#c0392b;--red-glow:rgba(192,57,43,0.12);
+  --text-primary:#0d1b2a;--text-secondary:#3a6080;--text-dim:#8aabbb;
+  --scanline-opacity:0;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg-void);color:var(--text-primary);font-family:'Rajdhani',sans-serif;font-size:14px;min-height:100vh;display:flex;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,var(--scanline-opacity)) 2px,rgba(0,0,0,var(--scanline-opacity)) 4px);pointer-events:none;z-index:9999;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar-w);min-height:100vh;background:var(--bg-deep);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:100;overflow:hidden;}
+.sidebar::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);}
+.sidebar-logo{padding:20px 16px 16px;border-bottom:1px solid var(--border);}
+.logo-badge{display:flex;align-items:center;gap:10px;}
+.logo-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: #000;
+  font-weight: 900;
+  filter: drop-shadow(0 0 5px var(--cyan)) drop-shadow(0 0 15px var(--blue));
+  position: relative;
+  overflow: hidden;
+}
+
+.logo-icon::after {
+  content: '';
+  position: absolute;
+  top: -60%;
+  left: -60%;
+  width: 40%;
+  height: 220%;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255,255,255,0.85) 50%,
+    transparent 80%
+  );
+  animation: logoShimmer 2.8s ease-in-out infinite;
+  transform: skewX(-15deg);
+  pointer-events: none;
+}
+
+@keyframes logoShimmer {
+  0%   { left: -60%; top: -60%; opacity: 0; }
+  10%  { opacity: 1; }
+  60%  { left: 120%; top: 120%; opacity: 1; }
+  61%  { opacity: 0; }
+  100% { left: 120%; top: 120%; opacity: 0; }
+}
+
+.logo-text {
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: 2px;
+  color: #fff; 
+  text-shadow: 0 0 5px var(--cyan), 0 0 10px var(--cyan), 0 0 20px var(--cyan), 0 0 40px var(--cyan);
+}
+.logo-sub{font-size:9px;color:var(--text-dim);letter-spacing:2px;margin-top:1px;font-family:'Share Tech Mono',monospace;}
+.sidebar-section{padding:16px 12px 8px;}
+.sidebar-label{font-size:9px;letter-spacing:3px;color:var(--text-dim);font-family:'Share Tech Mono',monospace;padding:0 4px;margin-bottom:6px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:6px;cursor:pointer;transition:all 0.2s;margin-bottom:2px;color:var(--text-secondary);font-size:13px;font-weight:600;letter-spacing:0.5px;border:1px solid transparent;position:relative;}
+.nav-item:hover{background:var(--cyan-glow);color:var(--cyan);border-color:var(--border);}
+.nav-item.active{background:linear-gradient(90deg,rgba(0,200,255,0.15),transparent);color:var(--cyan);border-color:var(--border);}
+.nav-item.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--cyan);border-radius:4px;box-shadow:0 0 8px var(--cyan);}
+.nav-item i{width:16px;text-align:center;font-size:12px;}
+.nav-badge{margin-left:auto;font-size:9px;padding:2px 6px;border-radius:10px;font-family:'Share Tech Mono',monospace;}
+.nav-badge.warn{background:rgba(255,204,0,0.2);color:var(--yellow);}
+.nav-badge.danger{background:rgba(255,61,90,0.2);color:var(--red);}
+.sidebar-status{margin-top:auto;padding:14px 16px;border-top:1px solid var(--border);}
+.sys-status{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-secondary);font-family:'Share Tech Mono',monospace;}
+.pulse-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulseDot 2s infinite;flex-shrink:0;}
+@keyframes pulseDot{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.5;transform:scale(0.8);}}
+
+/* MAIN */
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh;}
+
+/* HEADER */
+.header{height:var(--header-h);background:var(--bg-deep);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;position:sticky;top:0;z-index:50;gap:16px;}
+.header-title{font-family:'Exo 2',sans-serif;font-size:16px;font-weight:700;letter-spacing:2px;color:var(--text-primary);}
+.header-title span{color:var(--cyan);}
+.header-search{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:7px 12px;margin-left:16px;transition:border-color 0.2s;}
+.header-search:focus-within{border-color:var(--cyan-dim);background:var(--cyan-glow);}
+.header-search i{color:var(--text-dim);font-size:12px;}
+.header-search input{background:none;border:none;outline:none;color:var(--text-primary);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:500;width:180px;}
+.header-search input::placeholder{color:var(--text-dim);}
+.header-actions{display:flex;align-items:center;gap:10px;margin-left:auto;}
+.btn-refresh{display:flex;align-items:center;gap:6px;padding:7px 14px;background:rgba(0,200,255,0.1);border:1px solid var(--border-bright);border-radius:6px;color:var(--cyan);font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;letter-spacing:1px;cursor:pointer;transition:all 0.2s;}
+.btn-refresh:hover{background:rgba(0,200,255,0.2);box-shadow:0 0 16px var(--cyan-glow);}
+.btn-refresh.spinning i{animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.clock-widget{text-align:right;border-left:1px solid var(--border);padding-left:16px;}
+.clock-time{font-family:'Share Tech Mono',monospace;font-size:18px;color:var(--cyan);line-height:1;}
+.clock-date{font-size:10px;color:var(--text-dim);letter-spacing:1px;}
+
+/* CONTENT */
+.content{padding:20px 24px;flex:1;}
+
+/* FLOATING ALERT BANNER */
+.alert-banner{display:none;align-items:center;gap:12px;padding:12px 20px;background:rgba(10,15,20,0.96);border:1px solid rgba(255,61,90,0.4);border-left:4px solid var(--red);border-radius:6px;font-size:13px;font-weight:600;color:var(--red);font-family:'Share Tech Mono',monospace;box-shadow:0 10px 30px rgba(255,61,90,0.25);backdrop-filter:blur(8px);position:fixed;top:80px;right:24px;z-index:9998;min-width:320px;animation:slideInRight 0.4s cubic-bezier(0.175,0.885,0.32,1.275);}
+.alert-banner.show{display:flex;}
+@keyframes slideInRight{from{opacity:0;transform:translateX(50px);}to{opacity:1;transform:translateX(0);}}
+.alert-banner .close-banner{margin-left:auto;cursor:pointer;opacity:0.6;font-size:16px;}
+.alert-banner .close-banner:hover{opacity:1;}
+
+/* SUMMARY CARDS */
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+.sum-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;align-items:center;gap:14px;transition:all 0.3s;position:relative;overflow:hidden;}
+.sum-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan-dim),transparent);opacity:0;}
+.sum-card:hover{border-color:var(--border-bright);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.3);}
+.sum-card:hover::after{opacity:0.5;}
+.sum-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;transition:all 0.3s;}
+.sum-icon.green{background:var(--green-glow);color:var(--green);}
+.sum-icon.yellow{background:var(--yellow-glow);color:var(--yellow);}
+.sum-icon.red{background:var(--red-glow);color:var(--red);}
+.sum-icon.cyan{background:var(--cyan-glow);color:var(--cyan);}
+.sum-val{font-family:'Exo 2',sans-serif;font-size:28px;font-weight:800;line-height:1;margin-bottom:2px;}
+.sum-label{font-size:11px;color:var(--text-secondary);letter-spacing:1px;text-transform:uppercase;}
+
+/* SECTION HEADER */
+.section-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.section-title{font-family:'Exo 2',sans-serif;font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--text-secondary);}
+.section-line{flex:1;height:1px;background:var(--border);}
+.section-count{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);}
+
+/* INDUSTRIAL CONTROL */
+.ctrl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+.ctrl-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;align-items:center;gap:14px;transition:all 0.3s;}
+.ctrl-card:hover{border-color:var(--border-bright);}
+.gauge-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 14px;}
+.gauge-wrap canvas{max-height:90px;}
+.gauge-label{font-size:10px;color:var(--text-secondary);letter-spacing:1px;text-transform:uppercase;font-family:'Share Tech Mono',monospace;text-align:center;}
+.gauge-val{font-family:'Exo 2',sans-serif;font-size:18px;font-weight:700;color:var(--cyan);text-align:center;transition:color 0.4s;}
+.gauge-val.warning{color:var(--yellow);}
+.gauge-val.danger{color:var(--red);animation:dangerPulse 1.2s infinite;}
+.actuator-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;}
+.act-state{font-family:'Exo 2',sans-serif;font-size:22px;font-weight:800;letter-spacing:1px;transition:color 0.4s;}
+.act-label{font-size:10px;color:var(--text-dim);letter-spacing:2px;font-family:'Share Tech Mono',monospace;}
+.act-icon-wrap{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:4px;}
+
+/* LOCATION CARDS */
+.locations-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:22px;}
+.loc-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all 0.3s;position:relative;}
+.loc-card::before{content:'';position:absolute;top:0;left:0;width:0;height:0;border-style:solid;border-width:14px 14px 0 0;border-color:var(--cyan) transparent transparent transparent;opacity:0.4;z-index:1;}
+.loc-card:hover{border-color:var(--border-bright);transform:translateY(-3px);box-shadow:0 12px 30px rgba(0,0,0,0.4);}
+.loc-card.offline-card{opacity:0.6;border-color:rgba(255,61,90,0.2);}
+.loc-card.danger-card{border-color:rgba(255,61,90,0.4);box-shadow:0 0 20px rgba(255,61,90,0.1);}
+
+.loc-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;border-bottom:1px solid var(--border);}
+.loc-name{font-family:'Exo 2',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;}
+.loc-id{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);margin-top:1px;}
+.loc-status-badge{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:1px;font-family:'Share Tech Mono',monospace;}
+.loc-status-badge.online{background:rgba(0,230,118,0.12);color:var(--green);border:1px solid rgba(0,230,118,0.3);}
+.loc-status-badge.offline{background:rgba(255,61,90,0.12);color:var(--red);border:1px solid rgba(255,61,90,0.3);}
+.loc-status-badge i{font-size:7px;}
+
+/* SENSOR ROWS */
+.sensor-rows{display:flex;flex-direction:column;}
+.sensor-row{display:grid;grid-template-columns:28px 1fr 80px 72px;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--border);transition:background 0.3s;}
+.sensor-row:last-child{border-bottom:none;}
+.sensor-row:hover{background:rgba(0,200,255,0.03);}
+.sr-icon{width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;transition:all 0.3s;}
+.sr-icon.normal{background:var(--cyan-glow);color:var(--cyan);}
+.sr-icon.warning{background:var(--yellow-glow);color:var(--yellow);}
+.sr-icon.danger{background:var(--red-glow);color:var(--red);}
+.sr-label{font-size:9px;color:var(--text-dim);letter-spacing:1.5px;text-transform:uppercase;font-family:'Share Tech Mono',monospace;}
+.sr-value{font-family:'Exo 2',sans-serif;font-size:18px;font-weight:700;line-height:1.2;transition:color 0.4s;}
+.sr-value .sr-unit{font-size:10px;font-weight:400;color:var(--text-secondary);margin-left:1px;}
+.sr-value.normal{color:var(--text-primary);}
+.sr-value.warning{color:var(--yellow);}
+.sr-value.danger{color:var(--red);animation:dangerPulse 1.2s infinite;}
+@keyframes dangerPulse{0%,100%{opacity:1;}50%{opacity:0.55;}}
+.sr-chart-wrap{height:38px;position:relative;}
+.sr-bar-col{display:flex;flex-direction:column;gap:3px;align-items:flex-end;}
+.sr-bar{height:3px;background:rgba(255,255,255,0.07);border-radius:3px;width:100%;overflow:hidden;}
+.sr-bar-fill{height:100%;border-radius:3px;transition:width 0.8s ease,background 0.4s;}
+.sr-bar-fill.normal{background:var(--cyan);}
+.sr-bar-fill.warning{background:var(--yellow);box-shadow:0 0 5px var(--yellow);}
+.sr-bar-fill.danger{background:var(--red);box-shadow:0 0 5px var(--red);}
+.sr-pct{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);}
+
+.loc-footer{padding:8px 14px;display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.2);border-top:1px solid var(--border);}
+.loc-timestamp{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);display:flex;align-items:center;gap:5px;}
+
+/* MAIN CHART */
+.main-chart-section{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;}
+.chart-section-header{display:flex;align-items:center;padding:14px 20px;border-bottom:1px solid var(--border);gap:12px;}
+.chart-section-title{font-family:'Exo 2',sans-serif;font-size:14px;font-weight:700;letter-spacing:1.5px;}
+.chart-tabs{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap;}
+.chart-tab{padding:5px 12px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid transparent;color:var(--text-secondary);letter-spacing:0.5px;transition:all 0.2s;background:none;font-family:'Rajdhani',sans-serif;}
+.chart-tab.active{background:var(--cyan-glow);border-color:var(--border-bright);color:var(--cyan);}
+.chart-tab:hover:not(.active){border-color:var(--border);color:var(--text-primary);}
+.main-chart-body{padding:16px 20px 20px;height:240px;position:relative;}
+
+/* ALERT LOG */
+.alert-log-section{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;}
+.alert-log-header{display:flex;align-items:center;padding:13px 20px;border-bottom:1px solid var(--border);gap:10px;}
+.alert-log-title{font-family:'Exo 2',sans-serif;font-size:14px;font-weight:700;letter-spacing:1.5px;}
+.alert-log-count{font-family:'Share Tech Mono',monospace;font-size:10px;padding:2px 8px;border-radius:10px;}
+.alert-log-count.has-alerts{background:rgba(255,61,90,0.15);color:var(--red);border:1px solid rgba(255,61,90,0.3);}
+.alert-log-count.zero{background:var(--cyan-glow);color:var(--cyan);border:1px solid var(--border-bright);}
+.btn-clear-log{margin-left:auto;display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:5px;cursor:pointer;background:rgba(255,61,90,0.08);border:1px solid rgba(255,61,90,0.25);color:rgba(255,61,90,0.7);font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;letter-spacing:1px;transition:all 0.2s;}
+.btn-clear-log:hover{background:rgba(255,61,90,0.18);color:var(--red);}
+.alert-log-filter{display:flex;gap:6px;padding:10px 20px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.12);}
+.filter-btn{padding:4px 12px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid var(--border);color:var(--text-dim);background:none;font-family:'Share Tech Mono',monospace;letter-spacing:0.5px;transition:all 0.2s;}
+.filter-btn:hover{border-color:var(--border-bright);color:var(--text-secondary);}
+.filter-btn.active{border-color:var(--border-bright);color:var(--cyan);background:var(--cyan-glow);}
+.filter-btn.f-warning.active{border-color:rgba(255,204,0,0.4);color:var(--yellow);background:var(--yellow-glow);}
+.filter-btn.f-danger.active{border-color:rgba(255,61,90,0.4);color:var(--red);background:var(--red-glow);}
+.alert-log-body{max-height:320px;overflow-y:auto;font-family:'Share Tech Mono',monospace;}
+.alert-log-body::-webkit-scrollbar{width:4px;}
+.alert-log-body::-webkit-scrollbar-track{background:transparent;}
+.alert-log-body::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:2px;}
+.log-empty{padding:36px;text-align:center;color:var(--text-dim);font-size:11px;letter-spacing:2px;}
+.log-empty i{display:block;font-size:24px;margin-bottom:12px;opacity:0.2;}
+.log-entry{display:grid;grid-template-columns:130px 60px 140px 120px 1fr 90px;align-items:center;gap:10px;padding:9px 20px;border-bottom:1px solid rgba(0,200,255,0.05);transition:background 0.2s;font-size:10px;animation:logSlide 0.35s ease;}
+@keyframes logSlide{from{opacity:0;transform:translateX(-10px);}to{opacity:1;transform:translateX(0);}}
+.log-entry:last-child{border-bottom:none;}
+.log-entry:hover{background:rgba(0,200,255,0.03);}
+.log-entry.hidden-entry{display:none;}
+.log-time{color:var(--text-dim);font-size:10px;white-space:nowrap;}
+.log-level-badge{padding:2px 7px;border-radius:3px;font-size:9px;letter-spacing:0.5px;white-space:nowrap;text-align:center;font-weight:700;}
+.level-warning .log-level-badge{background:rgba(255,204,0,0.15);color:var(--yellow);border:1px solid rgba(255,204,0,0.3);}
+.level-danger  .log-level-badge{background:rgba(255,61,90,0.15);color:var(--red);border:1px solid rgba(255,61,90,0.3);}
+.log-location{color:var(--cyan);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.log-sensor{color:var(--text-secondary);white-space:nowrap;}
+.log-message{color:var(--text-primary);font-size:10px;}
+.log-value-badge{padding:2px 8px;border-radius:4px;font-size:11px;white-space:nowrap;font-weight:700;font-family:'Exo 2',sans-serif;text-align:right;}
+.level-warning .log-value-badge{background:var(--yellow-glow);color:var(--yellow);}
+.level-danger  .log-value-badge{background:var(--red-glow);color:var(--red);}
+.alert-log-footer{padding:9px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:16px;background:rgba(0,0,0,0.15);}
+.log-stat{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);display:flex;align-items:center;gap:5px;}
+.log-stat span{color:var(--text-secondary);}
+
+/* FOOTER */
+.footer{background:var(--bg-deep);border-top:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:24px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);}
+.footer-item{display:flex;align-items:center;gap:6px;}
+.footer-item .val{color:var(--cyan);}
+.footer-item .val.ok{color:var(--green);}
+.footer-item .val.err{color:var(--red);}
+.footer-ver{margin-left:auto;}
+
+/* Flash */
+@keyframes flashUpdate{0%{background:rgba(0,200,255,0.1);}100%{background:transparent;}}
+.sensor-row.flash{animation:flashUpdate 0.7s ease;}
+
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:var(--bg-void);}
+::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:3px;}
+
+@media(max-width:1300px){.locations-grid{grid-template-columns:repeat(2,1fr);}.summary-grid,.ctrl-grid{grid-template-columns:repeat(2,1fr);}.log-entry{grid-template-columns:110px 55px 110px 100px 1fr 70px;}}
+@media(max-width:900px){.locations-grid{grid-template-columns:1fr;}.summary-grid{grid-template-columns:repeat(2,1fr);}.ctrl-grid{grid-template-columns:repeat(2,1fr);}.header-search{display:none;}}
+@media(max-width:768px){:root{--sidebar-w:60px;}.logo-text,.logo-sub,.nav-item span,.sidebar-label,.nav-badge{display:none;}.log-entry{grid-template-columns:90px 50px 1fr 60px;}.log-sensor,.log-message{display:none;}.header-title{font-size:13px;}.oee-grid{grid-template-columns:repeat(2,1fr)!important;}.summary-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:480px){.summary-grid{grid-template-columns:1fr;}.ctrl-grid{grid-template-columns:1fr;}.oee-grid{grid-template-columns:1fr!important;}.header-actions .btn-refresh:not(#refreshBtn):not(#exportBtn){display:none;}}
+
+/* COUNTDOWN */
+.refresh-countdown{text-align:center;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);margin-top:4px;letter-spacing:1px;}
+.refresh-countdown span{color:var(--cyan);font-size:10px;}
+
+/* SHIFT TOGGLE */
+.shift-toggle{display:flex;align-items:center;gap:8px;padding:5px 12px;border-radius:20px;cursor:pointer;border:1px solid var(--border-bright);background:rgba(0,200,255,0.07);font-size:11px;font-weight:600;font-family:'Share Tech Mono',monospace;letter-spacing:1px;color:var(--cyan);transition:all 0.3s;white-space:nowrap;}
+.shift-toggle:hover{background:rgba(0,200,255,0.15);}
+body.day-shift .shift-toggle{background:rgba(255,180,0,0.12);border-color:rgba(255,180,0,0.5);color:#b8860b;}
+.shift-toggle i{font-size:12px;}
+
+/* OEE SECTION */
+.oee-section{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;}
+.oee-header{display:flex;align-items:center;padding:14px 20px;border-bottom:1px solid var(--border);gap:10px;}
+.oee-title{font-family:'Exo 2',sans-serif;font-size:14px;font-weight:700;letter-spacing:1.5px;}
+.oee-subtitle{font-size:10px;color:var(--text-dim);font-family:'Share Tech Mono',monospace;margin-left:4px;}
+.oee-body{padding:16px 20px;}
+.oee-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.oee-card{background:var(--bg-deep);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center;position:relative;overflow:hidden;transition:all 0.3s;}
+.oee-card:hover{border-color:var(--border-bright);transform:translateY(-2px);}
+.oee-card::before{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;}
+.oee-card.oee-availability::before{background:linear-gradient(90deg,var(--cyan),var(--blue));}
+.oee-card.oee-performance::before{background:linear-gradient(90deg,var(--green),#00c8ff);}
+.oee-card.oee-quality::before{background:linear-gradient(90deg,var(--yellow),#ff9900);}
+.oee-card.oee-total::before{background:linear-gradient(90deg,#aa00ff,var(--cyan));}
+.oee-ring-wrap{position:relative;width:80px;height:80px;margin:0 auto 8px;}
+.oee-ring-wrap canvas{position:absolute;top:0;left:0;}
+.oee-ring-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+.oee-ring-pct{font-family:'Exo 2',sans-serif;font-size:16px;font-weight:800;line-height:1;}
+.oee-ring-unit{font-size:9px;color:var(--text-dim);}
+.oee-card-label{font-size:10px;color:var(--text-secondary);letter-spacing:1.5px;font-family:'Share Tech Mono',monospace;text-transform:uppercase;margin-bottom:4px;}
+.oee-card-sub{font-size:9px;color:var(--text-dim);font-family:'Share Tech Mono',monospace;}
+.oee-total .oee-ring-pct{font-size:20px;color:#aa00ff;}
+.oee-bar-row{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.oee-bar-label{font-size:9px;color:var(--text-dim);font-family:'Share Tech Mono',monospace;width:80px;text-align:right;flex-shrink:0;}
+.oee-bar-track{flex:1;height:6px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;}
+.oee-bar-fill{height:100%;border-radius:3px;transition:width 1s ease;}
+.oee-bar-val{font-size:9px;font-family:'Share Tech Mono',monospace;color:var(--text-secondary);width:36px;text-align:right;flex-shrink:0;}
+
+/* COMPARISON CHART */
+.comp-chart-section{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;}
+.comp-chart-body{padding:16px 20px 20px;height:260px;position:relative;}
+
+/* EXPORT STATUS */
+.export-status{font-size:9px;color:var(--text-dim);font-family:'Share Tech Mono',monospace;display:block;margin-top:2px;text-align:center;}
+</style>
+</head>
+<body>
+
+<audio id="alarmSound" loop>
+  <source src="https://cdn.pixabay.com/download/audio/2022/03/10/audio_c8c8a73467.mp3?filename=short-buzzer-9842.mp3" type="audio/mp3">
+</audio>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-badge">
+      <div class="logo-icon"><i class="fas fa-bolt"></i></div>
+      <div><div class="logo-text">NEXUS</div><div class="logo-sub">IIoT CONTROL</div></div>
+    </div>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">MONITORING</div>
+    <div class="nav-item active" data-target="top"><i class="fas fa-th-large"></i><span>Dashboard</span></div>
+    <div class="nav-item" data-target="locations"><i class="fas fa-map-marker-alt"></i><span>Lokasi</span><span class="nav-badge">5</span></div>
+    <div class="nav-item" data-target="alerts"><i class="fas fa-bell"></i><span>Alarm</span><span class="nav-badge danger" id="sideAlarmBadge">0</span></div>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">ANALITIK</div>
+    <div class="nav-item" data-target="chart"><i class="fas fa-chart-line"></i><span>Tren Data</span></div>
+    <div class="nav-item" data-target="oee"><i class="fas fa-industry"></i><span>OEE</span></div>
+    <div class="nav-item" data-target="comparison"><i class="fas fa-chart-bar"></i><span>Perbandingan</span></div>
+    <div class="nav-item" data-target="alerts"><i class="fas fa-history"></i><span>Riwayat</span></div>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">SISTEM</div>
+    <div class="nav-item" id="navSettings"><i class="fas fa-cog"></i><span>Pengaturan</span></div>
+  </div>
+  <div class="sidebar-status">
+    <div class="sys-status"><div class="pulse-dot" id="pulseStatus"></div><span id="sysStatusText">MENGHUBUNGKAN...</span></div>
+  </div>
+</aside>
+
+<main class="main">
+  <header class="header">
+    <div class="header-title">NEXUS <span>IIoT</span> — Pabrik Susu</div>
+    <div class="header-search">
+      <i class="fas fa-search"></i>
+      <input type="text" id="searchInput" placeholder="Cari lokasi...">
+    </div>
+    <div class="header-actions">
+      <button class="btn-refresh" id="exportBtn" onclick="exportCSV()" style="background:rgba(0,230,118,0.1);border-color:rgba(0,230,118,0.4);color:var(--green);">
+        <i class="fas fa-file-csv"></i> EKSPOR CSV
+      </button>
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <button class="btn-refresh" id="refreshBtn" onclick="triggerRefresh()">
+          <i class="fas fa-sync-alt"></i> REFRESH
+        </button>
+        <div class="refresh-countdown">AUTO <span id="countdownVal">5</span>s</div>
+      </div>
+      <button class="shift-toggle" id="shiftToggleBtn" onclick="toggleShift()" title="Ganti Mode Shift">
+        <i class="fas fa-moon" id="shiftIcon"></i>
+        <span id="shiftLabel">NIGHT SHIFT</span>
+      </button>
+      <div class="clock-widget">
+        <div class="clock-time" id="clockTime">00:00:00</div>
+        <div class="clock-date" id="clockDate">--</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="content" id="top">
+
+    <!-- FLOATING ALERT BANNER -->
+    <div class="alert-banner" id="alertBanner">
+      <i class="fas fa-exclamation-triangle"></i>
+      <span id="alertText">Peringatan sistem aktif</span>
+      <span class="close-banner" onclick="document.getElementById('alertBanner').classList.remove('show')">✕</span>
+    </div>
+
+    <!-- SUMMARY CARDS -->
+    <div class="summary-grid">
+      <div class="sum-card">
+        <div class="sum-icon cyan"><i class="fas fa-microchip"></i></div>
+        <div><div class="sum-val" id="sumSensor">--</div><div class="sum-label">Sensor Aktif</div></div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-icon green"><i class="fas fa-wifi"></i></div>
+        <div><div class="sum-val" id="sumOnline" style="color:var(--green)">--</div><div class="sum-label">Lokasi Online</div></div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-icon yellow"><i class="fas fa-exclamation-triangle"></i></div>
+        <div><div class="sum-val" id="sumWarn" style="color:var(--yellow)">--</div><div class="sum-label">Total Warning</div></div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-icon red"><i class="fas fa-bell"></i></div>
+        <div><div class="sum-val" id="sumAlarm" style="color:var(--red)">--</div><div class="sum-label">Total Alarm</div></div>
+      </div>
+    </div>
+
+    <!-- OEE ANALYTICS -->
+    <div class="section-header" id="oee">
+      <div class="section-title">Analitik Manufaktur</div>
+      <div class="section-line"></div>
+    </div>
+    <div class="oee-section">
+      <div class="oee-header">
+        <i class="fas fa-industry" style="color:var(--cyan)"></i>
+        <span class="oee-title">OEE — Overall Equipment Effectiveness</span>
+        <span class="oee-subtitle">Sesi ini</span>
+        <span style="margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim)" id="oeeUpdatedAt">—</span>
+      </div>
+      <div class="oee-body">
+        <div class="oee-grid">
+          <div class="oee-card oee-availability">
+            <div class="oee-card-label">Availability</div>
+            <div class="oee-ring-wrap"><canvas id="oeeRingA" width="80" height="80"></canvas>
+              <div class="oee-ring-center"><div class="oee-ring-pct" id="oeeAvailVal" style="color:var(--cyan)">--%</div><div class="oee-ring-unit">AVAIL</div></div>
+            </div>
+            <div class="oee-card-sub" id="oeeAvailSub">Lokasi online / total</div>
+          </div>
+          <div class="oee-card oee-performance">
+            <div class="oee-card-label">Performance</div>
+            <div class="oee-ring-wrap"><canvas id="oeeRingP" width="80" height="80"></canvas>
+              <div class="oee-ring-center"><div class="oee-ring-pct" id="oeePerfVal" style="color:var(--green)">--%</div><div class="oee-ring-unit">PERF</div></div>
+            </div>
+            <div class="oee-card-sub" id="oeePerfSub">Sensor normal / total</div>
+          </div>
+          <div class="oee-card oee-quality">
+            <div class="oee-card-label">Quality</div>
+            <div class="oee-ring-wrap"><canvas id="oeeRingQ" width="80" height="80"></canvas>
+              <div class="oee-ring-center"><div class="oee-ring-pct" id="oeeQualVal" style="color:var(--yellow)">--%</div><div class="oee-ring-unit">QUAL</div></div>
+            </div>
+            <div class="oee-card-sub" id="oeeQualSub">Tanpa bahaya / total poll</div>
+          </div>
+          <div class="oee-card oee-total">
+            <div class="oee-card-label">OEE Total</div>
+            <div class="oee-ring-wrap"><canvas id="oeeRingT" width="80" height="80"></canvas>
+              <div class="oee-ring-center"><div class="oee-ring-pct" id="oeeTotalVal">--%</div><div class="oee-ring-unit">OEE</div></div>
+            </div>
+            <div class="oee-card-sub" id="oeeTotalSub">A × P × Q</div>
+          </div>
+        </div>
+        <div class="oee-bar-row"><div class="oee-bar-label">AVAILABILITY</div><div class="oee-bar-track"><div class="oee-bar-fill" id="oeeBarA" style="width:0%;background:var(--cyan)"></div></div><div class="oee-bar-val" id="oeeBarAVal">0%</div></div>
+        <div class="oee-bar-row"><div class="oee-bar-label">PERFORMANCE</div><div class="oee-bar-track"><div class="oee-bar-fill" id="oeeBarP" style="width:0%;background:var(--green)"></div></div><div class="oee-bar-val" id="oeeBarPVal">0%</div></div>
+        <div class="oee-bar-row"><div class="oee-bar-label">QUALITY</div><div class="oee-bar-track"><div class="oee-bar-fill" id="oeeBarQ" style="width:0%;background:var(--yellow)"></div></div><div class="oee-bar-val" id="oeeBarQVal">0%</div></div>
+        <div class="oee-bar-row"><div class="oee-bar-label">OEE</div><div class="oee-bar-track"><div class="oee-bar-fill" id="oeeBarT" style="width:0%;background:linear-gradient(90deg,#aa00ff,var(--cyan))"></div></div><div class="oee-bar-val" id="oeeBarTVal">0%</div></div>
+      </div>
+    </div>
+
+    <!-- PERBANDINGAN ANTAR LOKASI -->
+    <div class="section-header" id="comparison">
+      <div class="section-title">Perbandingan Antar Lokasi</div>
+      <div class="section-line"></div>
+    </div>
+    <div class="comp-chart-section">
+      <div class="chart-section-header">
+        <i class="fas fa-chart-bar" style="color:var(--cyan)"></i>
+        <span class="chart-section-title">Snapshot Sensor Per-Lokasi</span>
+        <div class="chart-tabs">
+          <button class="chart-tab active" onclick="switchCompChart('suhu',this)">SUHU</button>
+          <button class="chart-tab" onclick="switchCompChart('pressure',this)">PRESSURE</button>
+          <button class="chart-tab" onclick="switchCompChart('level',this)">LEVEL</button>
+          <button class="chart-tab" onclick="switchCompChart('ph',this)">pH</button>
+          <button class="chart-tab" onclick="switchCompChart('flow_rate',this)">FLOW</button>
+        </div>
+      </div>
+      <div class="comp-chart-body"><canvas id="compChart"></canvas></div>
+    </div>
+
+    <!-- INDUSTRIAL CONTROL PANEL -->
+    <div class="section-header">
+      <div class="section-title">Industrial Control Panel</div>
+      <div class="section-line"></div>
+    </div>
+    <div class="ctrl-grid">
+      <!-- Gauge Suhu Tangki Utama -->
+      <div class="sum-card" style="flex-direction:column;align-items:center;padding:14px;">
+        <div id="gaugeSuhuWrap" style="width:100%;height:110px;position:relative;">
+          <canvas id="gaugeSuhu"></canvas>
+        </div>
+        <div class="gauge-val" id="gaugeValSuhu">-- °C</div>
+        <div class="gauge-label">Suhu Tangki Utama</div>
+        <div style="font-size:9px;color:var(--text-dim);font-family:'Share Tech Mono',monospace;margin-top:2px;">MAX: 8°C</div>
+      </div>
+      <!-- Gauge Level Tangki Utama -->
+      <div class="sum-card" style="flex-direction:column;align-items:center;padding:14px;">
+        <div id="gaugeLevelWrap" style="width:100%;height:110px;position:relative;">
+          <canvas id="gaugeLevel"></canvas>
+        </div>
+        <div class="gauge-val" id="gaugeValLevel">-- %</div>
+        <div class="gauge-label">Level Tangki Utama</div>
+        <div style="font-size:9px;color:var(--text-dim);font-family:'Share Tech Mono',monospace;margin-top:2px;">MAX: 95%</div>
+      </div>
+      <!-- Valve Input -->
+      <div class="actuator-card">
+        <div class="act-icon-wrap" id="actInputIconWrap" style="background:rgba(0,200,255,0.12);color:var(--cyan)">
+          <i class="fas fa-toggle-on"></i>
+        </div>
+        <div class="act-state" id="actInputText" style="color:var(--green)">OPEN</div>
+        <div class="act-label">Valve Input Tangki</div>
+      </div>
+      <!-- Pompa Pasteurisasi -->
+      <div class="actuator-card">
+        <div class="act-icon-wrap" id="actPumpIconWrap" style="background:rgba(0,230,118,0.12);color:var(--green)">
+          <i class="fas fa-cog" id="actPumpIcon"></i>
+        </div>
+        <div class="act-state" id="actPumpText" style="color:var(--green)">RUNNING</div>
+        <div class="act-label">Pompa Pasteurisasi</div>
+      </div>
+    </div>
+
+    <!-- LOCATION CARDS -->
+    <div class="section-header" id="locations">
+      <div class="section-title">Monitoring Lokasi</div>
+      <div class="section-line"></div>
+      <div class="section-count" id="locCount">-- / 5 ONLINE</div>
+    </div>
+    <div class="locations-grid" id="locationsGrid"></div>
+
+    <!-- MAIN CHART -->
+    <div class="section-header" id="chart">
+      <div class="section-title">Grafik Realtime</div>
+      <div class="section-line"></div>
+    </div>
+    <div class="main-chart-section">
+      <div class="chart-section-header">
+        <i class="fas fa-chart-area" style="color:var(--cyan)"></i>
+        <span class="chart-section-title">Tren Sensor Semua Lokasi</span>
+        <div class="chart-tabs">
+          <button class="chart-tab active" onclick="switchChart('suhu',this)">SUHU</button>
+          <button class="chart-tab" onclick="switchChart('pressure',this)">PRESSURE</button>
+          <button class="chart-tab" onclick="switchChart('level',this)">LEVEL TANGKI</button>
+          <button class="chart-tab" onclick="switchChart('ph',this)">pH SUSU</button>
+          <button class="chart-tab" onclick="switchChart('flow_rate',this)">FLOW RATE</button>
+          <button class="chart-tab" onclick="switchChart('kelembapan',this)">KELEMBAPAN</button>
+        </div>
+      </div>
+      <div class="main-chart-body"><canvas id="mainChart"></canvas></div>
+    </div>
+
+    <!-- ALERT LOG -->
+    <div class="section-header" id="alerts">
+      <div class="section-title">Log Peringatan</div>
+      <div class="section-line"></div>
+    </div>
+    <div class="alert-log-section">
+      <div class="alert-log-header">
+        <i class="fas fa-exclamation-circle" style="color:var(--red)"></i>
+        <span class="alert-log-title">Alert Log</span>
+        <span class="alert-log-count zero" id="logTotalCount">0</span>
+        <button class="btn-clear-log" onclick="clearLog()"><i class="fas fa-trash-alt"></i> HAPUS LOG</button>
+      </div>
+      <div class="alert-log-filter">
+        <button class="filter-btn active" onclick="setFilter('all',this)">SEMUA</button>
+        <button class="filter-btn f-warning" onclick="setFilter('warning',this)">⚠ WARNING</button>
+        <button class="filter-btn f-danger" onclick="setFilter('danger',this)">🔴 BAHAYA</button>
+      </div>
+      <div class="alert-log-body" id="alertLogBody">
+        <div class="log-empty"><i class="fas fa-shield-alt"></i>Belum ada peringatan tercatat</div>
+      </div>
+      <div class="alert-log-footer">
+        <div class="log-stat"><i class="fas fa-exclamation-triangle" style="color:var(--yellow)"></i>Warning: <span id="logWarnCount">0</span></div>
+        <div class="log-stat"><i class="fas fa-times-circle" style="color:var(--red)"></i>Bahaya: <span id="logDangerCount">0</span></div>
+        <div class="log-stat" style="margin-left:auto"><i class="fas fa-save"></i>Storage: <span>localStorage</span></div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <footer class="footer">
+    <div class="footer-item"><i class="fas fa-server"></i> API <span class="val" id="footerApi">--</span></div>
+    <div class="footer-item"><i class="fas fa-database"></i> MongoDB <span class="val" id="footerDb">CONNECTED</span></div>
+    <div class="footer-item"><i class="fas fa-broadcast-tower"></i> MQTT <span class="val ok">ACTIVE</span></div>
+    <div class="footer-item"><i class="fas fa-tachometer-alt"></i> UPDATE <span class="val">5s</span></div>
+    <div class="footer-item"><i class="fas fa-sync-alt"></i> POLL <span class="val" id="footerPoll">0x</span></div>
+    <div class="footer-item footer-ver"><i class="fas fa-code-branch"></i> v3.4.0-industrial</div>
+  </footer>
+</main>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const API_URL = 'http://localhost:5000/api/status';
+
+// Lokasi sesuai pub_susu.py
+const LOCATIONS = [
+  { id:'LOC-001', name:'Tangki Susu Utama',  icon:'fa-database' },
+  { id:'LOC-002', name:'Jalur Pasteurisasi', icon:'fa-fire' },
+  { id:'LOC-003', name:'Ruang Pendingin',    icon:'fa-snowflake' },
+  { id:'LOC-004', name:'Area Filling',       icon:'fa-box' },
+  { id:'LOC-005', name:'Tangki Fermentasi',  icon:'fa-flask' }
+];
+
+// Semua sensor yang mungkin ada (per-area hanya yang relevan)
+const ALL_SENSORS = [
+  { key:'suhu',       label:'Suhu',       unit:'°C',   icon:'fa-thermometer-half', min:0,  max:80,  warn:8,   danger:10,  color:'rgba(0,200,255,0.85)',  invertLogic:false },
+  { key:'pressure',   label:'Tekanan',    unit:'Bar',  icon:'fa-compress-alt',     min:0,  max:10,  warn:4,   danger:5,   color:'rgba(160,100,255,0.85)',invertLogic:false },
+  { key:'level',      label:'Level',      unit:'%',    icon:'fa-water',            min:0,  max:100, warn:90,  danger:95,  color:'rgba(0,255,180,0.85)',  invertLogic:false },
+  { key:'ph',         label:'pH',         unit:'pH',   icon:'fa-vial',             min:3,  max:7.5, warn:6.5, danger:6.3, color:'rgba(255,160,50,0.85)', invertLogic:true  },
+  { key:'flow_rate',  label:'Aliran',     unit:'L/m',  icon:'fa-wind',             min:0,  max:50,  warn:20,  danger:15,  color:'rgba(255,200,0,0.85)', invertLogic:true  },
+  { key:'kelembapan', label:'Lembap',     unit:'%',    icon:'fa-tint',             min:0,  max:100, warn:70,  danger:85,  color:'rgba(100,140,255,0.85)',invertLogic:false }
+];
+
+// Sensor per-area SESUAI pub_susu.py
+const AREA_SENSORS = {
+  'LOC-001': ['suhu','pressure','level','ph'],
+  'LOC-002': ['suhu','flow_rate','pressure'],
+  'LOC-003': ['suhu','kelembapan'],
+  'LOC-004': ['flow_rate','pressure','suhu'],
+  'LOC-005': ['suhu','ph','level']
+};
+
+// Threshold SESUAI sub_susu.py
+const THRESHOLD = {
+  'Tangki Susu Utama':  { suhu_max:8,   pressure_max:4,   ph_min:6.3, level_max:95 },
+  'Jalur Pasteurisasi': { suhu_min:65,  flow_rate_min:15 },
+  'Ruang Pendingin':    { suhu_max:8 },
+  'Area Filling':       { suhu_max:10, flow_rate_min:15, pressure_max:5 },
+  'Tangki Fermentasi':  { suhu_max:46, ph_min:4.0, level_max:95 }
+};
+
+const SENSOR_MAP = Object.fromEntries(ALL_SENSORS.map(s => [s.key, s]));
+const MAX_HIST   = 30;
+const LS_KEY     = 'nexus_alert_log_v2';
+const MAX_LOG    = 500;
+const CHART_COLORS = ['rgba(0,200,255,0.9)','rgba(0,255,180,0.9)','rgba(100,140,255,0.9)','rgba(255,200,0,0.9)','rgba(255,100,200,0.9)'];
+
+let state         = {};
+let sensorCharts  = {};
+let mainChartObj  = null;
+let compChartObj  = null;
+let gaugeChartSuhu= null;
+let gaugeChartLvl = null;
+let sensorHistory = {};
+let currentChartMetric = 'suhu';
+let currentCompMetric  = 'suhu';
+let currentFilter = 'all';
+let prevLevels    = {};
+let isAlarmPlaying= false;
+let pollCount     = 0;
+let dataLog24jam  = []; // rolling buffer data 24 jam untuk ekspor CSV
+const MAX_LOG_24H = 17280; // 24jam / 5detik = 17280 entri maks
+
+// OEE tracking
+let oeePollTotal   = 0;
+let oeePollDanger  = 0;
+let oeeRingCharts  = {};
+
+// Auto refresh countdown
+let countdownVal   = 5;
+let countdownTimer = null;
+
+// ── INIT STATE ────────────────────────────────────────────────────────────────
+function initState() {
+  LOCATIONS.forEach(loc => {
+    state[loc.id] = { online:false };
+    const sensorKeys = AREA_SENSORS[loc.id] || [];
+    sensorKeys.forEach(key => {
+      state[loc.id][key] = null;
+      sensorHistory[`${loc.id}_${key}`] = Array.from({length:MAX_HIST}, ()=>0);
+    });
+  });
+}
+
+// ── THRESHOLD-BASED LEVEL ─────────────────────────────────────────────────────
+function getLevelFromThreshold(locName, key, val) {
+  if (val === null || val === undefined) return 'normal';
+  const cfg = THRESHOLD[locName];
+  if (!cfg) return 'normal';
+
+  // Suhu max
+  if (`${key}_max` in cfg) {
+    const max = cfg[`${key}_max`];
+    if (val > max) return 'danger';
+    if (val > max * 0.88) return 'warning';
+  }
+  // Suhu min
+  if (`${key}_min` in cfg) {
+    const min = cfg[`${key}_min`];
+    if (val < min) return 'danger';
+    if (val < min * 1.1) return 'warning';
+  }
+  return 'normal';
+}
+
+// ── GAUGE ─────────────────────────────────────────────────────────────────────
+function createGauge(canvasId, color, maxVal) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return null;
+  return new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: { datasets:[{ data:[0, maxVal], backgroundColor:[color,'rgba(255,255,255,0.05)'], borderWidth:0 }] },
+    options: {
+      circumference:180, rotation:-90, aspectRatio:2,
+      cutout:'80%', maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{enabled:false} }
+    }
+  });
+}
+
+function updateGauge(gauge, valEl, val, maxVal, maxThreshold, label) {
+  if (!gauge || val === null) return;
+  const clamped = Math.max(0, Math.min(val, maxVal));
+  gauge.data.datasets[0].data = [clamped, Math.max(0, maxVal - clamped)];
+  const lv = val > maxThreshold ? 'danger' : (val > maxThreshold * 0.88 ? 'warning' : 'normal');
+  const colorMap = { normal: '#00c8ff', warning: '#ffcc00', danger: '#ff3d5a' };
+  gauge.data.datasets[0].backgroundColor[0] = colorMap[lv];
+  gauge.update('none');
+  if (valEl) {
+    valEl.textContent = label.replace('{}', val.toFixed(1));
+    valEl.className = `gauge-val ${lv}`;
+  }
+}
+
+// ── BUILD CARDS ───────────────────────────────────────────────────────────────
+function buildCards() {
+  const grid = document.getElementById('locationsGrid');
+  if (!grid) return;
+  grid.innerHTML = LOCATIONS.map(loc => {
+    const sensorKeys = AREA_SENSORS[loc.id] || [];
+    const sensors = sensorKeys.map(k => SENSOR_MAP[k]).filter(Boolean);
+    return `
+    <div class="loc-card" id="card-${loc.id}">
+      <div class="loc-header">
+        <div>
+          <div class="loc-name"><i class="fas ${loc.icon}" style="margin-right:6px;color:var(--cyan);font-size:11px"></i>${loc.name}</div>
+          <div class="loc-id">${loc.id}</div>
+        </div>
+        <div class="loc-status-badge online" id="badge-${loc.id}"><i class="fas fa-circle"></i> ONLINE</div>
+      </div>
+      <div class="sensor-rows">
+        ${sensors.map(s => `
+        <div class="sensor-row" id="sr-${loc.id}-${s.key}">
+          <div class="sr-icon normal" id="sicon-${loc.id}-${s.key}"><i class="fas ${s.icon}"></i></div>
+          <div>
+            <div class="sr-label">${s.label.toUpperCase()}</div>
+            <div class="sr-value normal" id="sv-${loc.id}-${s.key}">--<span class="sr-unit">${s.unit}</span></div>
+          </div>
+          <div class="sr-chart-wrap"><canvas id="sc-${loc.id}-${s.key}"></canvas></div>
+          <div class="sr-bar-col">
+            <div class="sr-bar"><div class="sr-bar-fill normal" id="sb-${loc.id}-${s.key}" style="width:0%"></div></div>
+            <div class="sr-pct" id="sp-${loc.id}-${s.key}">--%</div>
+          </div>
+        </div>`).join('')}
+      </div>
+      <div class="loc-footer">
+        <div class="loc-timestamp" id="ts-${loc.id}"><i class="fas fa-clock"></i> menunggu data...</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function initSensorCharts() {
+  LOCATIONS.forEach(loc => {
+    const sensorKeys = AREA_SENSORS[loc.id] || [];
+    sensorKeys.forEach(key => {
+      const s = SENSOR_MAP[key];
+      if (!s) return;
+      const canv = document.getElementById(`sc-${loc.id}-${key}`);
+      if (canv) {
+        sensorCharts[`${loc.id}_${key}`] = new Chart(canv.getContext('2d'), {
+          type:'line',
+          data:{ labels:[0,1,2,3], datasets:[{ data:[0,0,0,0], borderColor:s.color, borderWidth:1.5, pointRadius:0, tension:0.4, fill:true, backgroundColor: s.color.replace('0.85','0.05') }] },
+          options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{display:false},y:{display:false}} }
+        });
+      }
+    });
+  });
+}
+
+function initMainChart() {
+  const ctx = document.getElementById('mainChart');
+  if (!ctx) return;
+  mainChartObj = new Chart(ctx.getContext('2d'), {
+    type:'line',
+    data:{
+      labels: Array.from({length:MAX_HIST},(_,i)=>i),
+      datasets: LOCATIONS.map((loc,i) => ({
+        label: loc.name,
+        data: sensorHistory[`${loc.id}_suhu`] || Array(MAX_HIST).fill(0),
+        borderColor: CHART_COLORS[i], borderWidth:1.5, pointRadius:0, tension:0.4,
+        fill: false
+      }))
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:true, labels:{color:'rgba(128,180,200,0.8)', font:{size:11} } } },
+      scales:{ x:{display:false}, y:{ticks:{color:'rgba(128,180,200,0.5)'}, grid:{color:'rgba(255,255,255,0.04)'}} }
+    }
+  });
+}
+
+function initCompChart() {
+  const ctx = document.getElementById('compChart');
+  if (!ctx) return;
+  compChartObj = new Chart(ctx.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: LOCATIONS.map(l => l.name.replace('Tangki ','').replace('Jalur ','').replace('Ruang ','').replace('Area ','')),
+      datasets: [{
+        label: 'Suhu (°C)',
+        data: [0,0,0,0,0],
+        backgroundColor: CHART_COLORS.map(c => c.replace('0.9','0.5')),
+        borderColor: CHART_COLORS,
+        borderWidth: 1.5,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: 'rgba(128,180,200,0.7)', font:{size:10} }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: 'rgba(128,180,200,0.5)' }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      }
+    }
+  });
+}
+
+function updateCompChart() {
+  if (!compChartObj) return;
+  const sensorDef = ALL_SENSORS.find(s => s.key === currentCompMetric);
+  const vals = LOCATIONS.map(loc => {
+    const s = state[loc.id];
+    return (s && s[currentCompMetric] !== null && s[currentCompMetric] !== undefined) ? s[currentCompMetric] : 0;
+  });
+  compChartObj.data.datasets[0].data = vals;
+  compChartObj.data.datasets[0].label = sensorDef ? `${sensorDef.label} (${sensorDef.unit})` : currentCompMetric;
+  compChartObj.update('none');
+}
+
+function switchCompChart(m, b) {
+  currentCompMetric = m;
+  document.querySelectorAll('.comp-chart-section .chart-tab').forEach(t => t.classList.remove('active'));
+  b.classList.add('active');
+  updateCompChart();
+}
+
+function initOEERings() {
+  const configs = [
+    { id:'oeeRingA', color:'#00c8ff' },
+    { id:'oeeRingP', color:'#00e676' },
+    { id:'oeeRingQ', color:'#ffcc00' },
+    { id:'oeeRingT', color:'#aa00ff' },
+  ];
+  configs.forEach(cfg => {
+    const canvas = document.getElementById(cfg.id);
+    if (!canvas) return;
+    oeeRingCharts[cfg.id] = new Chart(canvas.getContext('2d'), {
+      type: 'doughnut',
+      data: { datasets:[{ data:[0,100], backgroundColor:[cfg.color,'rgba(255,255,255,0.04)'], borderWidth:0 }] },
+      options: { cutout:'75%', maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{enabled:false}}, animation:{duration:600} }
+    });
+  });
+}
+
+function updateOEE(totalOnline, totalSensors, totalWarn, totalAlarm) {
+  oeePollTotal++;
+  if (totalAlarm > 0) oeePollDanger++;
+
+  const availability  = totalSensors > 0 ? (totalOnline / LOCATIONS.length) * 100 : 0;
+  const normalSensors = Math.max(0, totalSensors - totalWarn - totalAlarm);
+  const performance   = totalSensors > 0 ? (normalSensors / totalSensors) * 100 : 100;
+  const quality       = oeePollTotal > 0 ? ((oeePollTotal - oeePollDanger) / oeePollTotal) * 100 : 100;
+  const oee           = (availability / 100) * (performance / 100) * (quality / 100) * 100;
+
+  const fmt = v => `${v.toFixed(1)}%`;
+
+  document.getElementById('oeeAvailVal').textContent = fmt(availability);
+  document.getElementById('oeePerfVal').textContent  = fmt(performance);
+  document.getElementById('oeeQualVal').textContent  = fmt(quality);
+  document.getElementById('oeeTotalVal').textContent = fmt(oee);
+  document.getElementById('oeeAvailSub').textContent = `${totalOnline}/${LOCATIONS.length} lokasi online`;
+  document.getElementById('oeePerfSub').textContent  = `${normalSensors}/${totalSensors} sensor normal`;
+  document.getElementById('oeeQualSub').textContent  = `${oeePollTotal - oeePollDanger}/${oeePollTotal} poll bersih`;
+  document.getElementById('oeeTotalSub').textContent = `A×P×Q = ${fmt(oee)}`;
+  document.getElementById('oeeUpdatedAt').textContent = new Date().toLocaleTimeString('id-ID');
+
+  // Update ring charts
+  [['oeeRingA', availability], ['oeeRingP', performance], ['oeeRingQ', quality], ['oeeRingT', oee]].forEach(([id, val]) => {
+    const ch = oeeRingCharts[id];
+    if (ch) { ch.data.datasets[0].data = [val, Math.max(0, 100 - val)]; ch.update('none'); }
+  });
+
+  // Update bars
+  [['A', availability], ['P', performance], ['Q', quality], ['T', oee]].forEach(([k, v]) => {
+    const bar = document.getElementById(`oeeBar${k}`);
+    const lbl = document.getElementById(`oeeBar${k}Val`);
+    if (bar) bar.style.width = `${Math.min(100,v)}%`;
+    if (lbl) lbl.textContent = fmt(v);
+  });
+}
+
+function updateMainChart() {
+  if (!mainChartObj) return;
+  LOCATIONS.forEach((loc,i) => {
+    const hk = `${loc.id}_${currentChartMetric}`;
+    mainChartObj.data.datasets[i].data = [...(sensorHistory[hk] || Array(MAX_HIST).fill(0))];
+  });
+  mainChartObj.update('none');
+}
+
+// ── RENDER CARD ───────────────────────────────────────────────────────────────
+function renderCard(loc, locName, s, locWarn, locAlarm) {
+  const card  = document.getElementById(`card-${loc.id}`);
+  const badge = document.getElementById(`badge-${loc.id}`);
+  if (!card || !badge) return;
+
+  if (s.online) {
+    badge.className = 'loc-status-badge online';
+    badge.innerHTML = '<i class="fas fa-circle"></i> ONLINE';
+    card.classList.remove('offline-card');
+    if (locAlarm > 0) card.classList.add('danger-card');
+    else card.classList.remove('danger-card');
+  } else {
+    badge.className = 'loc-status-badge offline';
+    badge.innerHTML = '<i class="fas fa-circle"></i> OFFLINE';
+    card.classList.add('offline-card');
+    card.classList.remove('danger-card');
+  }
+
+  const sensorKeys = AREA_SENSORS[loc.id] || [];
+  sensorKeys.forEach(key => {
+    const sens = SENSOR_MAP[key];
+    if (!sens) return;
+    const val = s[key];
+    const lv = getLevelFromThreshold(locName, key, val);
+
+    const svEl   = document.getElementById(`sv-${loc.id}-${key}`);
+    const sbEl   = document.getElementById(`sb-${loc.id}-${key}`);
+    const spEl   = document.getElementById(`sp-${loc.id}-${key}`);
+    const siEl   = document.getElementById(`sicon-${loc.id}-${key}`);
+    const rowEl  = document.getElementById(`sr-${loc.id}-${key}`);
+
+    if (val === null || val === undefined) {
+      if (svEl) svEl.innerHTML = `N/A<span class="sr-unit">${sens.unit}</span>`;
+    } else {
+      if (svEl) { svEl.className = `sr-value ${lv}`; svEl.innerHTML = `${val}<span class="sr-unit">${sens.unit}</span>`; }
+      if (siEl) siEl.className = `sr-icon ${lv}`;
+      const range = sens.max - sens.min;
+      const pct   = range > 0 ? Math.max(0, Math.min(100, ((val - sens.min) / range) * 100)) : 0;
+      if (sbEl) { sbEl.style.width = `${pct}%`; sbEl.className = `sr-bar-fill ${lv}`; }
+      if (spEl) spEl.textContent = `${Math.round(pct)}%`;
+      if (rowEl && lv !== 'normal') { rowEl.classList.add('flash'); setTimeout(() => rowEl.classList.remove('flash'), 700); }
+
+      // Update sparkline chart
+      const ch = sensorCharts[`${loc.id}_${key}`];
+      if (ch) {
+        ch.data.datasets[0].data.push(val);
+        if (ch.data.datasets[0].data.length > 20) ch.data.datasets[0].data.shift();
+        ch.update('none');
+      }
+
+      // Update history
+      const hk = `${loc.id}_${key}`;
+      if (sensorHistory[hk]) {
+        sensorHistory[hk].push(val);
+        if (sensorHistory[hk].length > MAX_HIST) sensorHistory[hk].shift();
+      }
+    }
+  });
+
+  const ts = document.getElementById(`ts-${loc.id}`);
+  if (ts && s.online && s.lastUpdate) {
+    ts.innerHTML = `<i class="fas fa-clock"></i> ${s.lastUpdate.toLocaleTimeString('id-ID')}`;
+  }
+}
+
+// ── INDUSTRIAL LOGIC ──────────────────────────────────────────────────────────
+function processIndustrialLogic(dbData) {
+  const tangki = dbData['Tangki Susu Utama'];
+  const alarm  = document.getElementById('alarmSound');
+
+  if (tangki) {
+    updateGauge(gaugeChartSuhu, document.getElementById('gaugeValSuhu'), tangki.suhu || 0, 15, 8, '{} °C');
+    updateGauge(gaugeChartLvl, document.getElementById('gaugeValLevel'), tangki.level || 0, 100, 95, '{} %');
+
+    // Valve logic: tutup jika level overflow
+    const actTxt = document.getElementById('actInputText');
+    if (tangki.level > 95) {
+      if (actTxt) { actTxt.textContent = 'CLOSED'; actTxt.style.color = 'var(--red)'; }
+    } else {
+      if (actTxt) { actTxt.textContent = 'OPEN'; actTxt.style.color = 'var(--green)'; }
+    }
+  }
+
+  // Pompa logic: aktif jika flow_rate pasteurisasi OK
+  const pasteur = dbData['Jalur Pasteurisasi'];
+  const pumpTxt = document.getElementById('actPumpText');
+  const pumpIcon = document.getElementById('actPumpIcon');
+  if (pasteur && pasteur.flow_rate !== undefined) {
+    if (pasteur.flow_rate < 15) {
+      if (pumpTxt) { pumpTxt.textContent = 'STOPPED'; pumpTxt.style.color = 'var(--red)'; }
+      if (pumpIcon) pumpIcon.style.animation = 'none';
+    } else {
+      if (pumpTxt) { pumpTxt.textContent = 'RUNNING'; pumpTxt.style.color = 'var(--green)'; }
+      if (pumpIcon) pumpIcon.style.animation = 'spin 2s linear infinite';
+    }
+  }
+
+  // Alarm suara: trigger jika ada bahaya di Tangki Utama
+  const isDanger = tangki && (tangki.suhu > 8 || (tangki.level !== undefined && tangki.level > 95) || (tangki.ph !== undefined && tangki.ph < 6.3));
+  if (isDanger) {
+    if (!isAlarmPlaying && alarm) { alarm.play().catch(()=>{}); isAlarmPlaying = true; }
+  } else {
+    if (alarm) { alarm.pause(); alarm.currentTime = 0; isAlarmPlaying = false; }
+  }
+}
+
+// ── DATA FETCH ────────────────────────────────────────────────────────────────
+async function updateData() {
+  pollCount++;
+  document.getElementById('footerPoll').textContent = `${pollCount}x`;
+  let totalWarn = 0, totalAlarm = 0, totalOnline = 0, totalSensors = 0;
+  let newAlerts = false;
+
+  try {
+    const resp = await fetch(API_URL);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const dbData = await resp.json();
+
+    // Update status UI
+    setStatus('SISTEM AKTIF', 'var(--green)');
+    document.getElementById('footerApi').textContent = 'ONLINE';
+    document.getElementById('footerApi').className = 'val ok';
+    document.getElementById('alertBanner').classList.remove('show');
+
+    processIndustrialLogic(dbData);
+
+    LOCATIONS.forEach(loc => {
+      const s        = state[loc.id];
+      const realData = dbData[loc.name];
+      const sKeys    = AREA_SENSORS[loc.id] || [];
+      totalSensors  += sKeys.length;
+
+      if (realData) {
+        s.online = true; totalOnline++;
+        s.lastUpdate = new Date(realData.timestamp || new Date());
+        let locWarn = 0, locAlarm = 0;
+
+        sKeys.forEach(key => {
+          if (realData[key] !== undefined) s[key] = realData[key];
+          const lv = getLevelFromThreshold(loc.name, key, s[key]);
+          if (s[key] !== null) {
+            if (lv === 'warning') { totalWarn++; locWarn++; }
+            if (lv === 'danger')  { totalAlarm++; locAlarm++; }
+            const hk = `${loc.id}_${key}`;
+            const prevLv = prevLevels[hk] || 'normal';
+            if ((lv === 'warning' || lv === 'danger') && lv !== prevLv) {
+              addLogEntry(loc.name, loc.id, SENSOR_MAP[key]?.label || key, key, lv, s[key], SENSOR_MAP[key]?.unit || '');
+              newAlerts = true;
+            }
+            prevLevels[`${loc.id}_${key}`] = lv;
+
+            // Simpan ke rolling buffer 24 jam
+            dataLog24jam.push({
+              ts:     new Date().toISOString(),
+              area:   loc.name,
+              sensor: SENSOR_MAP[key]?.label || key,
+              nilai:  s[key],
+              satuan: SENSOR_MAP[key]?.unit || '',
+              lv:     lv
+            });
+          }
+        });
+        // Buang entri lebih dari 24 jam
+        const cutoff24 = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        dataLog24jam = dataLog24jam.filter(e => new Date(e.ts) >= cutoff24);
+        renderCard(loc, loc.name, s, locWarn, locAlarm);
+      } else {
+        s.online = false;
+        renderCard(loc, loc.name, s, 0, 0);
+      }
+    });
+
+    document.getElementById('sumSensor').textContent = totalSensors;
+    document.getElementById('sumOnline').textContent = totalOnline;
+    document.getElementById('sumWarn').textContent   = totalWarn;
+    document.getElementById('sumAlarm').textContent  = totalAlarm;
+    document.getElementById('sideAlarmBadge').textContent = totalAlarm;
+    document.getElementById('locCount').textContent = `${totalOnline} / 5 ONLINE`;
+
+    if (totalAlarm > 0) {
+      const banner = document.getElementById('alertBanner');
+      if (!banner.classList.contains('show')) {
+        document.getElementById('alertText').textContent = `⚠ ${totalAlarm} sensor dalam kondisi BAHAYA!`;
+        banner.classList.add('show');
+      }
+    }
+
+    if (newAlerts) renderLog();
+    updateMainChart();
+    updateCompChart();
+    updateOEE(totalOnline, totalSensors, totalWarn, totalAlarm);
+
+  } catch (err) {
+    console.warn('API error:', err);
+    setStatus('API DISCONNECTED', 'var(--red)');
+    document.getElementById('footerApi').textContent = 'OFFLINE';
+    document.getElementById('footerApi').className = 'val err';
+
+    LOCATIONS.forEach(loc => { state[loc.id].online = false; renderCard(loc, loc.name, state[loc.id], 0, 0); });
+    document.getElementById('sumOnline').textContent = '0';
+    document.getElementById('locCount').textContent = '0 / 5 ONLINE';
+
+    const banner = document.getElementById('alertBanner');
+    if (!banner.classList.contains('show')) {
+      document.getElementById('alertText').textContent = '🚨 KONEKSI API TERPUTUS — Pastikan api_susu.py berjalan di port 5000';
+      banner.classList.add('show');
+    }
+  }
+}
+
+function setStatus(text, color) {
+  const dot  = document.getElementById('pulseStatus');
+  const span = document.getElementById('sysStatusText');
+  if (dot)  { dot.style.background = color; dot.style.boxShadow = `0 0 6px ${color}`; }
+  if (span) span.textContent = text;
+}
+
+// ── LOG ───────────────────────────────────────────────────────────────────────
+function loadLog() { try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch { return []; } }
+function saveLog(e) { localStorage.setItem(LS_KEY, JSON.stringify(e.slice(-MAX_LOG))); }
+function addLogEntry(locName, locId, sLabel, sKey, lv, val, unit) {
+  const e = loadLog();
+  e.push({ date: new Date().toLocaleDateString('id-ID'), time: new Date().toLocaleTimeString('id-ID'), locName, sLabel, sKey, lv, val, unit });
+  saveLog(e);
+}
+function renderLog() {
+  const entries = loadLog();
+  const body    = document.getElementById('alertLogBody');
+  if (!body) return;
+
+  const warns  = entries.filter(e => e.lv === 'warning').length;
+  const dangers = entries.filter(e => e.lv === 'danger').length;
+  const total  = entries.length;
+
+  const countEl = document.getElementById('logTotalCount');
+  if (countEl) {
+    countEl.textContent = total;
+    countEl.className = total > 0 ? 'alert-log-count has-alerts' : 'alert-log-count zero';
+  }
+  document.getElementById('logWarnCount').textContent   = warns;
+  document.getElementById('logDangerCount').textContent = dangers;
+
+  const filtered = entries.reverse().slice(0,80).filter(e => currentFilter === 'all' || e.lv === currentFilter);
+  if (filtered.length === 0) {
+    body.innerHTML = `<div class="log-empty"><i class="fas fa-shield-alt"></i>${total > 0 ? 'Tidak ada entri untuk filter ini' : 'Belum ada peringatan tercatat'}</div>`;
+    return;
+  }
+  body.innerHTML = filtered.map(e => `
+    <div class="log-entry level-${e.lv}">
+      <div class="log-time">${e.date} ${e.time}</div>
+      <div class="log-level-badge">${e.lv === 'danger' ? 'BAHAYA' : 'WARNING'}</div>
+      <div class="log-location">${e.locName}</div>
+      <div class="log-sensor">${e.sLabel || e.sKey}</div>
+      <div class="log-message">${e.lv === 'danger' ? '🔴 Melebihi batas bahaya' : '⚠ Mendekati batas aman'}</div>
+      <div class="log-value-badge">${e.val} ${e.unit}</div>
+    </div>`).join('');
+}
+function clearLog() {
+  if (!confirm('Hapus semua log peringatan?')) return;
+  localStorage.removeItem(LS_KEY);
+  renderLog();
+}
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderLog();
+}
+
+// ── SHIFT TOGGLE (DARK/LIGHT) ─────────────────────────────────────────────────
+function toggleShift() {
+  const isDay = document.body.classList.toggle('day-shift');
+  document.getElementById('shiftIcon').className  = isDay ? 'fas fa-sun' : 'fas fa-moon';
+  document.getElementById('shiftLabel').textContent = isDay ? 'DAY SHIFT' : 'NIGHT SHIFT';
+  localStorage.setItem('nexus_shift', isDay ? 'day' : 'night');
+}
+function initShift() {
+  const saved = localStorage.getItem('nexus_shift');
+  if (saved === 'day') {
+    document.body.classList.add('day-shift');
+    document.getElementById('shiftIcon').className   = 'fas fa-sun';
+    document.getElementById('shiftLabel').textContent = 'DAY SHIFT';
+  }
+}
+
+// ── COUNTDOWN ─────────────────────────────────────────────────────────────────
+function startCountdown() {
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownVal = 5;
+  document.getElementById('countdownVal').textContent = countdownVal;
+  countdownTimer = setInterval(() => {
+    countdownVal--;
+    if (countdownVal < 0) countdownVal = 5;
+    document.getElementById('countdownVal').textContent = countdownVal;
+  }, 1000);
+}
+
+// ── UI UTILS ──────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const tEl = document.getElementById('clockTime');
+  const dEl = document.getElementById('clockDate');
+  if (tEl) tEl.textContent = now.toLocaleTimeString('id-ID');
+  if (dEl) dEl.textContent = now.toLocaleDateString('id-ID',{weekday:'short',day:'2-digit',month:'short'}).toUpperCase();
+}
+function triggerRefresh() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  startCountdown();
+  updateData();
+  setTimeout(() => btn.classList.remove('spinning'), 800);
+}
+function switchChart(m, b) {
+  currentChartMetric = m;
+  document.querySelectorAll('.main-chart-section .chart-tab').forEach(t => t.classList.remove('active'));
+  b.classList.add('active');
+  updateMainChart();
+}
+
+// Search filter
+document.getElementById('searchInput').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('.loc-card').forEach(card => {
+    const name = card.querySelector('.loc-name')?.textContent.toLowerCase() || '';
+    card.style.display = name.includes(q) ? '' : 'none';
+  });
+});
+
+// Nav sidebar
+document.querySelectorAll('.nav-item[data-target]').forEach(item => {
+  item.addEventListener('click', function() {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    this.classList.add('active');
+    const target = document.getElementById(this.dataset.target);
+    if (target) target.scrollIntoView({behavior:'smooth'});
+  });
+});
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+initShift();
+initState();
+buildCards();
+initSensorCharts();
+initMainChart();
+initCompChart();
+initOEERings();
+renderLog();
+
+gaugeChartSuhu = createGauge('gaugeSuhu', '#00c8ff', 15);
+gaugeChartLvl  = createGauge('gaugeLevel', '#00e676', 100);
+
+updateData();
+startCountdown();
+setInterval(() => { updateData(); startCountdown(); }, 5000);
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── EKSPOR CSV 24 JAM (dari DB via API) ───────────────────────────────────────
+async function exportCSV() {
+  const btn = document.getElementById('exportBtn');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> MENGEKSPOR...';
+  btn.disabled = true;
+
+  const now    = new Date();
+  const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const rows   = [];
+  const headerCols = ['timestamp','area','sensor','nilai','satuan','status'];
+  rows.push(headerCols.join(','));
+
+  // Coba ambil dari API endpoint 24h jika tersedia, fallback ke buffer lokal
+  let usedDb = false;
+  try {
+    const resp = await fetch(API_URL.replace('/api/status', '/api/history24') );
+    if (resp.ok) {
+      const dbData = await resp.json();
+      if (Array.isArray(dbData) && dbData.length > 0) {
+        dbData.forEach(entry => {
+          const ts = new Date(entry.timestamp);
+          if (ts >= cutoff) {
+            const sensorKeys = Object.keys(entry).filter(k => !['_id','area','timestamp'].includes(k));
+            sensorKeys.forEach(key => {
+              const sens = SENSOR_MAP[key];
+              if (!sens || entry[key] === undefined) return;
+              const lv = getLevelFromThreshold(entry.area, key, entry[key]);
+              const statusLabel = lv === 'danger' ? 'BAHAYA' : (lv === 'warning' ? 'WARNING' : 'NORMAL');
+              rows.push([
+                `"${ts.toLocaleString('id-ID')}"`,
+                `"${entry.area}"`,
+                `"${sens.label}"`,
+                entry[key],
+                `"${sens.unit}"`,
+                statusLabel
+              ].join(','));
+            });
+          }
+        });
+        usedDb = true;
+      }
+    }
+  } catch(e) { /* fallback ke buffer lokal */ }
+
+  if (!usedDb) {
+    // Fallback: pakai rolling buffer sesi ini
+    dataLog24jam.forEach(entry => {
+      const ts = new Date(entry.ts);
+      if (ts >= cutoff) {
+        const statusLabel = entry.lv === 'danger' ? 'BAHAYA' : (entry.lv === 'warning' ? 'WARNING' : 'NORMAL');
+        rows.push([
+          `"${ts.toLocaleString('id-ID')}"`,
+          `"${entry.area}"`,
+          `"${entry.sensor}"`,
+          entry.nilai,
+          `"${entry.satuan}"`,
+          statusLabel
+        ].join(','));
+      }
+    });
+  }
+
+  if (rows.length <= 1) {
+    alert('Belum ada data yang terkumpul. Tunggu beberapa siklus refresh terlebih dahulu.');
+    btn.innerHTML = '<i class="fas fa-file-csv"></i> EKSPOR CSV';
+    btn.disabled = false;
+    return;
+  }
+
+  const csvContent = '\uFEFF' + rows.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  const tsFmt = now.toISOString().slice(0,19).replace(/[T:]/g,'-');
+  a.download = `data_susu_24jam_${tsFmt}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  btn.innerHTML = `<i class="fas fa-check"></i> ${rows.length - 1} BARIS`;
+  setTimeout(() => {
+    btn.innerHTML = '<i class="fas fa-file-csv"></i> EKSPOR CSV';
+    btn.disabled = false;
+  }, 2500);
+}
+</script>
+</body>
+</html>
