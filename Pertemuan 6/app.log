@@ -1,0 +1,11 @@
+2026-05-06 14:39:21,756 - INFO - Aplikasi dimulai. Koneksi MongoDB sukses.
+2026-05-06 14:39:57,263 - INFO - Insert berhasil: Batch BATCH-005 di CNC-05 (10 pcs)
+2026-05-06 14:40:08,321 - INFO - Query data CNC-05: Menampilkan 1 baris.
+2026-05-06 14:40:31,810 - INFO - Query reject rate: 1 batch bermasalah ditemukan.
+2026-05-06 14:40:50,002 - INFO - Ekspor laporan 05-2004: 0 data ditemukan.
+2026-05-06 14:40:56,183 - INFO - Aplikasi ditutup oleh pengguna.
+2026-05-06 15:09:22,357 - INFO - Aplikasi dimulai. Koneksi MongoDB sukses.
+2026-05-06 15:10:10,650 - ERROR - Error input data (ValueError): invalid literal for int() with base 10: '32, 34'
+2026-05-06 15:10:56,598 - INFO - Insert berhasil: Batch BATCH-002 di CNC-02 (35 pcs)
+2026-05-06 15:13:22,750 - ERROR - Ekspor gagal: Kesalahan format MM-YYYY.
+2026-05-06 15:13:24,630 - INFO - Aplikasi ditutup oleh pengguna.
